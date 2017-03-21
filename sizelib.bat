@@ -1,5 +1,8 @@
 @ECHO OFF
 
+FOR /F "usebackq delims=: tokens=2" %%I IN (`CHCP`) DO SET orig_cp=%%I
+CHCP 1250 >nul
+
 SETLOCAL ENABLEDELAYEDEXPANSION
 
 SET "wrong_proc="
@@ -46,6 +49,7 @@ FOR /F "usebackq tokens=1,2,3 delims==" %%I IN (`SET sizelib_exports_`) DO (
 	SET "%%J=%%K"
 )
 
+CHCP %orig_cp% >nul
 EXIT /B %errno%
 
 ::::: START :help :::::
