@@ -1,9 +1,10 @@
+@SETLOCAL ENABLEDELAYEDEXPANSION
+
+@CALL :testEcho
 @ECHO OFF
 
 FOR /F "usebackq delims=: tokens=2" %%I IN (`CHCP`) DO SET orig_cp=%%I
 CHCP 1250 >nul
-
-SETLOCAL ENABLEDELAYEDEXPANSION
 
 SET "wrong_proc="
 SET "label="
@@ -44,19 +45,21 @@ FOR /F %%I IN ("%remaining_export_vars%") DO (
 
 :sizelib_exports_set
 
-FOR /F "usebackq tokens=1,2,3 delims==" %%I IN (`SET sizelib_exports_`) DO (
+CHCP %orig_cp% >nul
+ECHO %echo%
+
+@FOR /F "usebackq tokens=1,2,3 delims==" %%I IN (`SET sizelib_exports_`) DO @(
 	IF DEFINED %%I ENDLOCAL
 	SET "%%J=%%K"
 )
 
-CHCP %orig_cp% >nul
-EXIT /B %errno%
+@EXIT /B %errno%
 
 ::::: START :help :::::
 
 :help
 
-@ECHO OFF
+::@ECHO OFF
 
 ECHO sizelib.bat 0.99
 ECHO.
@@ -115,10 +118,10 @@ EXIT /B 0
 
 :getSize out_B out_kB out_MB out_GB input_file_masks
 
-@ECHO OFF
+::@ECHO OFF
 
-FOR /F "usebackq delims=: tokens=2" %%I IN (`CHCP`) DO SET orig_cp=%%I
-CHCP 1250 >nul
+::FOR /F "usebackq delims=: tokens=2" %%I IN (`CHCP`) DO SET orig_cp=%%I
+::CHCP 1250 >nul
 
 SETLOCAL ENABLEDELAYEDEXPANSION
 
@@ -273,7 +276,7 @@ IF "%errno%" EQU "0" (
 	ENDLOCAL & SET "errno=%errno%"
 )
 
-CHCP %orig_cp% >nul
+::CHCP %orig_cp% >nul
 EXIT /B %errno%
 
 ::::: END :getSize :::::
@@ -282,10 +285,10 @@ EXIT /B %errno%
 
 :formatSize output_formatted_string input_B input_kB input_MB input_GB
 
-@ECHO OFF
+::@ECHO OFF
 
-FOR /F "usebackq delims=: tokens=2" %%I IN (`CHCP`) DO SET orig_cp=%%I
-CHCP 1250 >nul
+::FOR /F "usebackq delims=: tokens=2" %%I IN (`CHCP`) DO SET orig_cp=%%I
+::CHCP 1250 >nul
 
 SETLOCAL ENABLEDELAYEDEXPANSION
 
@@ -403,7 +406,7 @@ IF "%errno%" EQU "0" IF NOT DEFINED text_output (
 )
 IF "%errno%" NEQ "0" ENDLOCAL & SET "errno=%errno%"
 
-CHCP %orig_cp% >nul
+::CHCP %orig_cp% >nul
 EXIT /B	%errno%
 
 ::::: END :formatSize :::::
@@ -412,10 +415,10 @@ EXIT /B	%errno%
 
 :getFormattedSize input_file_masks
 
-@ECHO OFF
+::@ECHO OFF
 
-FOR /F "usebackq delims=: tokens=2" %%I IN (`CHCP`) DO SET orig_cp=%%I
-CHCP 1250 >nul
+::FOR /F "usebackq delims=: tokens=2" %%I IN (`CHCP`) DO SET orig_cp=%%I
+::CHCP 1250 >nul
 
 SETLOCAL ENABLEDELAYEDEXPANSION
 
@@ -432,6 +435,30 @@ CALL :formatSize "" B kB MB GB
 
 ENDLOCAL & SET errno=%errno%
 
-CHCP %orig_cp% >nul
+::CHCP %orig_cp% >nul
 EXIT /B %errno%
+
+::::: START :testEcho :::::
+
+:testEcho
+
+@SETLOCAL
+@PUSHD %TEMP%
+@SET "file_name=%~n0%RANDOM%"
+@SET "bat_file=%file_name%.bat"
+@SET "out_file=%file_name%.txt"
+@ECHO VER >%bat_file%
+@CALL %bat_file% >%out_file%
+@SET "count="
+@SET "echo=OFF"
+@FOR /F "usebackq tokens=*" %%I IN (%out_file%) DO @SET /A "count+=1"
+@IF /I "%count%" EQU "2" SET "echo=ON"
+@DEL %bat_file% %out_file%
+@POPD
+@ENDLOCAL & SET "echo=%echo%"
+@IF /I "%echo%" EQU "OFF" (
+	EXIT /B 0
+) ELSE (
+	EXIT /B -1
+) 
 
