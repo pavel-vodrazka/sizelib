@@ -1,28 +1,35 @@
+:main ::{{{1
+
 @SETLOCAL ENABLEDELAYEDEXPANSION
 
-@CALL :testEcho
+@CALL test_echo.bat x_echo
 @ECHO OFF
 
 FOR /F "usebackq delims=: tokens=2" %%I IN (`CHCP`) DO SET orig_cp=%%I
-CHCP 1250 >nul
+CHCP 65001 >nul
 
-SET "wrong_proc="
+SET "wrong_label="
 SET "label="
 SET "export_no="
 SET "export_vars="
 SET "errno=0"
 
-ECHO.
+IF /I "%1" EQU "" (
+	SET "arg_1=help"
+) ELSE (
+	SET "arg_1=%1"
+)
 
-IF /I "%~1" NEQ "getSize" IF /I "%~1" NEQ "formatSize" IF /I "%~1" NEQ "getFormattedSize" IF /I "%~1" NEQ "help" SET "wrong_proc=yes"
+IF /I "%arg_1%" NEQ "getSize" IF /I "%arg_1%" NEQ "formatSize" IF /I "%arg_1%" NEQ "getFormattedSize" IF /I "%arg_1%" NEQ "help" SET "wrong_label=yes"
 
-IF NOT DEFINED wrong_proc (
-	SET "label=%~1"
+IF NOT DEFINED wrong_label (
+	SET "label=%arg_1%"
 	SET "args=%*"
 	FOR /F "tokens=1*" %%I IN ("!args!") DO SET "args=%%J"
 	CALL :!label! !args!
 ) ELSE (
-	ECHO ERROR [1]: Tried to call a procedure not present in sizelib [»%1«]. >&2
+	ECHO. >&2
+	ECHO ERROR [1]: Tried to call a procedure not present in sizelib [â€œ%1â€]. >&2
 	ECHO. >&2
 	ECHO Giving you help: >&2
 	ECHO. >&2
@@ -30,7 +37,7 @@ IF NOT DEFINED wrong_proc (
 	SET "errno=1"
 )
 
-SET "export_vars=%export_vars% errno"
+SET "export_vars=%export_vars%"
 SET "remaining_export_vars=%export_vars%"
 
 :sizelib_set_exports
@@ -46,24 +53,23 @@ FOR /F %%I IN ("%remaining_export_vars%") DO (
 :sizelib_exports_set
 
 CHCP %orig_cp% >nul
-ECHO %echo%
 
-@FOR /F "usebackq tokens=1,2,3 delims==" %%I IN (`SET sizelib_exports_`) DO @(
+(FOR /F "usebackq tokens=1,2,3 delims==" %%I IN (`SET sizelib_exports_ 2^>nul`) DO (
 	IF DEFINED %%I ENDLOCAL
 	SET "%%J=%%K"
-)
+)) & (
+	ECHO %x_echo%
+) & EXIT /B %errno%
 
-@EXIT /B %errno%
+:::main }}}1
 
-::::: START :help :::::
+:procedures ::{{{1
 
-:help
-
-::@ECHO OFF
+:help ::{{{2
 
 ECHO sizelib.bat 0.99
 ECHO.
-ECHO Writen by: Pavel Vodrážka
+ECHO Writen by: Pavel VodrÃ¡Å¾ka
 ECHO Licence:   GPLv3
 ECHO.
 ECHO A library of procedures for enquiring size of a set of files and for
@@ -105,23 +111,17 @@ ECHO.
 ECHO getFormattedSize   Prints the formatted total size of the specified input
 ECHO                    file list ^(as in getSize^) to the console.
 ECHO.
-ECHO    input_file_masks
+ECHO    input_file_masks         One or more filenames, paths, or Windows-style
+ECHO                             masks.
 ECHO.
 ECHO help               Prints this help.
 ECHO.
 
 EXIT /B 0
 
-::::: END :help :::::
+:::help }}}2
 
-::::: START :getSize :::::
-
-:getSize out_B out_kB out_MB out_GB input_file_masks
-
-::@ECHO OFF
-
-::FOR /F "usebackq delims=: tokens=2" %%I IN (`CHCP`) DO SET orig_cp=%%I
-::CHCP 1250 >nul
+:getSize out_B out_kB out_MB out_GB input_file_masks ::{{{2
 
 SETLOCAL ENABLEDELAYEDEXPANSION
 
@@ -141,8 +141,8 @@ FOR %%I IN (out_B out_kB out_MB out_GB) DO (
 	SET /A "arg+=1"
 	CALL SET "%%I=%%!arg_1!" & SHIFT
 	IF NOT DEFINED %%I SET "errno=101" & SET "undefined_output_args=!undefined_output_args!%%~!arg! [%%I] "
-	IF EXIST "!%%I!" SET "errno=102" & SET "output_args_files=!output_args_files!%%~!arg! [»!%%I!« in place of %%I] "
-	IF DEFINED !%%I! SET "warning=!warning!Existing variable »!%%I!« will be overwritten by output.¦"
+	IF EXIST "!%%I!" SET "errno=102" & SET "output_args_files=!output_args_files!%%~!arg! [â€œ!%%I!â€ in place of â€œ%%Iâ€] "
+	IF DEFINED !%%I! SET "warning=!warning!Existing variable â€œ!%%I!â€ will be overwritten by output.?"
 )
 IF /I "%errno%" GTR "0" GOTO getSize_error
 
@@ -169,11 +169,11 @@ FOR /L %%I IN (%arg%,1,%max_arg%) DO (
 IF NOT DEFINED count_fargs SET "errno=103" & GOTO getSize_error
 
 FOR /F "usebackq delims== tokens=1*" %%I IN (`SET input_mask_`) DO (
-	IF NOT EXIST "%%~J" SET "input_masks_not_found=!input_masks_not_found!»%%J«; "
+	IF NOT EXIST "%%~J" SET "input_masks_not_found=!input_masks_not_found!%%J "
 	IF EXIST "%%J" SET "input_masks_any_file_found=yes"
 )
 ::TODO Add a warning for duplicate files.
-IF DEFINED input_masks_not_found SET "warning=!warning!File mask argument[s] %input_masks_not_found:~0,-2% do [does] not exist or is [are] inaccessible.¦"
+IF DEFINED input_masks_not_found SET "warning=!warning!File mask argument[s] â€œ%input_masks_not_found:~0,-1%â€ do [does] not exist or is [are] inaccessible.?"
 IF NOT DEFINED input_masks_any_file_found SET "errno=104" & GOTO getSize_error
 
 FOR /F "usebackq delims== tokens=1*" %%I IN (`SET input_mask_`) DO (
@@ -230,11 +230,12 @@ GOTO getSize_end
 :getSize_error
 
 IF "%errno%" EQU "101" SET errmsg=Output variable[s] %undefined_output_args:~0,-1% missing.
-IF "%errno%" EQU "102" SET errmsg=Existing file name[s] in place of output variable[s] %output_args_files:~0,-1%.
+IF "%errno%" EQU "102" SET errmsg=Existing file name[s] in place of output variable[s]: %output_args_files:~0,-1%.
 IF "%errno%" EQU "102" SET errexpl=First four arguments must specify output variables for bytes, kilobytes, megabytes, and gigabytes.
-IF "%errno%" EQU "103" SET errmsg=Input file mask list [%%~5 - ?] missing.
-IF "%errno%" EQU "104" SET errmsg=None of the specified file mask list [%input_masks_not_found:~0,-2%] exists or is accessible.
+IF "%errno%" EQU "103" SET errmsg=Input file mask list [%%~5 - ?] is missing.
+IF "%errno%" EQU "104" SET errmsg=None of the specified file mask list [â€œ%input_masks_not_found:~0,-1%â€] exists or is accessible.
 
+ECHO. >&2
 ECHO ERROR [%errno%]: %errmsg% >&2
 IF DEFINED errexpl ECHO.             %errexpl% >&2
 
@@ -250,7 +251,7 @@ IF DEFINED warning (
 
 :getSize_output_warning
 
-FOR /F "usebackq delims=¦ tokens=1*" %%A IN ('%remaining_warnings%') DO (
+FOR /F "usebackq delims=? tokens=1*" %%A IN ('%remaining_warnings%') DO (
 	SET "remaining_warnings=%%B"
 	SET /A "warning_no+=1"
 	IF /I "!warning_no!" EQU "1" (
@@ -276,19 +277,11 @@ IF "%errno%" EQU "0" (
 	ENDLOCAL & SET "errno=%errno%"
 )
 
-::CHCP %orig_cp% >nul
 EXIT /B %errno%
 
-::::: END :getSize :::::
+:::getSize out_B out_kB out_MB out_GB input_file_masks }}}2
 
-::::: START :formatSize :::::
-
-:formatSize output_formatted_string input_B input_kB input_MB input_GB
-
-::@ECHO OFF
-
-::FOR /F "usebackq delims=: tokens=2" %%I IN (`CHCP`) DO SET orig_cp=%%I
-::CHCP 1250 >nul
+:formatSize output_formatted_string input_B input_kB input_MB input_GB ::{{{2
 
 SETLOCAL ENABLEDELAYEDEXPANSION
 
@@ -297,7 +290,7 @@ SET "errno=0"
 SET "output_var=%~1"
 ::IF NOT DEFINED output_var SET "errno=201" & GOTO formatSize_error
 IF NOT DEFINED output_var SET text_output=yes
-IF DEFINED output_var IF DEFINED !output_var! SET "warning=!warning!Existing variable »!output_var!« will be overwritten by output.¦"
+IF DEFINED output_var IF DEFINED !output_var! SET "warning=!warning!Existing variable â€œ!output_var!â€ will be overwritten by output.?"
 
 SET "in_B=%~2"
 SET "in_kB=%~3"
@@ -311,17 +304,17 @@ FOR %%I IN (in_GB in_MB in_kB in_B) DO (
 	IF DEFINED !%%I! SET "true_var=!%%I!"
 	IF DEFINED true_var FOR /F %%J IN ("!true_var!") DO SET "true_val=!%%J!"
 	IF DEFINED true_val SET "%%I=!true_val!"
-	IF DEFINED %%I IF NOT DEFINED next_undefined SET "any_input=%%~!arg! [%%I !true_var!=»!%%I!«]"
-	IF DEFINED any_input IF DEFINED next_undefined IF DEFINED %%I SET "non_contiguous_input=%%~!arg! [%%I !true_var!=»!%%I!«]"
-	IF DEFINED any_input IF DEFINED next_undefined IF NOT DEFINED non_contiguous_input IF NOT DEFINED %%I SET "second_undefined= and %%~!arg! [%%I !true_var!=»!%%I!«]"
-	IF DEFINED any_input IF NOT DEFINED next_undefined IF NOT DEFINED %%I SET "next_undefined=%%~!arg! [%%I !true_var!=»!%%I!«]"
+	IF DEFINED %%I IF NOT DEFINED next_undefined SET "any_input=%%~!arg! [%%I: â€œ!true_var!â€=â€œ!%%I!â€]"
+	IF DEFINED any_input IF DEFINED next_undefined IF DEFINED %%I SET "non_contiguous_input=%%~!arg! [%%I: â€œ!true_var!â€=â€œ!%%I!â€]"
+	IF DEFINED any_input IF DEFINED next_undefined IF NOT DEFINED non_contiguous_input IF NOT DEFINED %%I SET "second_undefined= and %%~!arg! [%%I: â€œ!true_var!â€=â€œ!%%I!â€]"
+	IF DEFINED any_input IF NOT DEFINED next_undefined IF NOT DEFINED %%I SET "next_undefined=%%~!arg! [%%I: â€œ!true_var!â€=â€œ!%%I!â€]"
 	IF DEFINED %%I IF "!%%I!" NEQ "0" SET /A "numeric_I=!%%I!" 2>nul && (
-		IF "!numeric_I!" EQU "0" SET "non_numeric_input=!non_numeric_input!%%~!arg! [%%I !true_var!=»!%%I!«], "
+		IF "!numeric_I!" EQU "0" SET "non_numeric_input=!non_numeric_input!%%~!arg! [%%I: â€œ!true_var!â€=â€œ!%%I!â€], "
 	) || (
-		SET "non_numeric_input=!non_numeric_input!%%~!arg! [%%I !true_var!=»!%%I!«], "
+		SET "non_numeric_input=!non_numeric_input!%%~!arg! [%%I: â€œ!true_var!â€=â€œ!%%I!â€], "
 	)
 	IF DEFINED %%I SET "test_excess=!%%I:~0,-3!"
-	IF DEFINED test_excess SET "excess_numerals=!excess_numerals!%%~!arg! [%%I !true_var!=»!%%I!«], "
+	IF DEFINED test_excess SET "excess_numerals=!excess_numerals!%%~!arg! [%%I: â€œ!true_var!â€=â€œ!%%I!â€], "
 )
 IF NOT DEFINED any_input SET "errno=202" & GOTO formatSize_error
 IF DEFINED non_contiguous_input SET "errno=203" & GOTO formatSize_error
@@ -378,7 +371,7 @@ IF DEFINED warning (
 
 :formatSize_output_warning
 
-FOR /F "usebackq delims=¦ tokens=1*" %%A IN ('%remaining_warnings%') DO (
+FOR /F "usebackq delims=? tokens=1*" %%A IN ('%remaining_warnings%') DO (
 	SET "remaining_warnings=%%B"
 	SET /A "warning_no+=1"
 	IF /I "!warning_no!" EQU "1" (
@@ -406,41 +399,34 @@ IF "%errno%" EQU "0" IF NOT DEFINED text_output (
 )
 IF "%errno%" NEQ "0" ENDLOCAL & SET "errno=%errno%"
 
-::CHCP %orig_cp% >nul
 EXIT /B	%errno%
 
-::::: END :formatSize :::::
+:::formatSize output_formatted_string input_B input_kB input_MB input_GB }}}2
 
-::::: START :getFormattedSize :::::
-
-:getFormattedSize input_file_masks
-
-::@ECHO OFF
-
-::FOR /F "usebackq delims=: tokens=2" %%I IN (`CHCP`) DO SET orig_cp=%%I
-::CHCP 1250 >nul
+:getFormattedSize input_file_masks ::{{{2
 
 SETLOCAL ENABLEDELAYEDEXPANSION
 
 SET "errno=0"
+SET "B="
+SET "kB="
+SET "MB="
+SET "GB="
 
 CALL :getSize B kB MB GB %*
-::SET "errno=%ERRORLEVEL%"
 IF "%errno%" NEQ "0" GOTO getFormattedSize_end
 
 CALL :formatSize "" B kB MB GB
-::SET "errno=%ERRORLEVEL%"
 
 :getFormattedSize_end
 
 ENDLOCAL & SET errno=%errno%
 
-::CHCP %orig_cp% >nul
 EXIT /B %errno%
 
-::::: START :testEcho :::::
+:::getFormattedSize input_file_masks }}}2
 
-:testEcho
+:testEcho ::{{{2
 
 @SETLOCAL
 @PUSHD %TEMP%
@@ -452,7 +438,7 @@ EXIT /B %errno%
 @SET "count="
 @SET "echo=OFF"
 @FOR /F "usebackq tokens=*" %%I IN (%out_file%) DO @SET /A "count+=1"
-@IF /I "%count%" EQU "2" SET "echo=ON"
+@IF /I "%count%" GEQ "2" SET "echo=ON"
 @DEL %bat_file% %out_file%
 @POPD
 @ENDLOCAL & SET "echo=%echo%"
@@ -460,5 +446,10 @@ EXIT /B %errno%
 	EXIT /B 0
 ) ELSE (
 	EXIT /B -1
-) 
+)
 
+:::testEcho }}}2
+
+:::procedures }}}1
+
+:: vim: foldmethod=marker
